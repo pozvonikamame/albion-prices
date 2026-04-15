@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -138,13 +137,11 @@ export default function Home() {
               </div>
             </div>
             <div className="aspect-square bg-muted">
-              <Image
+              <img
                 src={`/maps/${map.image}`}
                 alt={map.name}
                 className="h-full w-full object-cover"
-                width={640}
-                height={640}
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                loading="lazy"
                 onError={(event) => {
                   const target = event.currentTarget;
                   target.onerror = null;
