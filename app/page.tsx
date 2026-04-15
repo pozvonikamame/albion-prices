@@ -1,7 +1,8 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import mapsData from "@/src/data/maps.json";
@@ -14,6 +15,8 @@ type AvalonMap = {
 };
 
 const maps = (mapsData as { maps: AvalonMap[] }).maps;
+const INITIAL_VISIBLE = 36;
+const VISIBLE_STEP = 36;
 
 function toRoman(tier: number): string {
   const romans: Record<number, string> = {
@@ -31,12 +34,25 @@ function toRoman(tier: number): string {
 
 export default function Home() {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 220);
+    return () => window.clearTimeout(timeout);
+  }, [query]);
 
   const filteredMaps = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (!q) return maps;
     return maps.filter((map) => map.name.toLowerCase().includes(q));
-  }, [query]);
+  }, [debouncedQuery]);
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_VISIBLE);
+  }, [debouncedQuery]);
 
   const suggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -51,6 +67,12 @@ export default function Home() {
       .slice(0, 8)
       .map(([name, tier]) => ({ name, tier }));
   }, [query]);
+
+  const visibleMaps = useMemo(
+    () => filteredMaps.slice(0, visibleCount),
+    [filteredMaps, visibleCount],
+  );
+  const hasMore = visibleCount < filteredMaps.length;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6">
@@ -94,11 +116,15 @@ export default function Home() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Найдено карт: <span className="font-medium text-foreground">{filteredMaps.length}</span>
+        Показано карт:{" "}
+        <span className="font-medium text-foreground">
+          {Math.min(visibleMaps.length, filteredMaps.length)}
+        </span>{" "}
+        из <span className="font-medium text-foreground">{filteredMaps.length}</span>
       </p>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredMaps.map((map) => (
+        {visibleMaps.map((map) => (
           <article
             key={map.id}
             className="overflow-hidden rounded-lg border border-border bg-card shadow-sm"
@@ -112,11 +138,13 @@ export default function Home() {
               </div>
             </div>
             <div className="aspect-square bg-muted">
-              <img
+              <Image
                 src={`/maps/${map.image}`}
                 alt={map.name}
                 className="h-full w-full object-cover"
-                loading="lazy"
+                width={640}
+                height={640}
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 onError={(event) => {
                   const target = event.currentTarget;
                   target.onerror = null;
@@ -127,6 +155,18 @@ export default function Home() {
           </article>
         ))}
       </section>
+
+      {hasMore && (
+        <div className="flex justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setVisibleCount((prev) => prev + VISIBLE_STEP)}
+          >
+            Показать еще {Math.min(VISIBLE_STEP, filteredMaps.length - visibleCount)}
+          </Button>
+        </div>
+      )}
 
       {filteredMaps.length === 0 && (
         <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-10 text-center text-sm text-muted-foreground">
