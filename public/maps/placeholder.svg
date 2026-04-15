@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <rect width="1200" height="675" fill="#111827" />
+  <rect x="24" y="24" width="1152" height="627" rx="16" fill="#1f2937" stroke="#374151" stroke-width="4" />
+  <g fill="#9ca3af" font-family="Arial, Helvetica, sans-serif" text-anchor="middle">
+    <text x="600" y="318" font-size="46" font-weight="700">Preview Not Found</text>
+    <text x="600" y="364" font-size="28">Add image to /public/maps and set image name in src/data/maps.json</text>
+  </g>
+</svg>
