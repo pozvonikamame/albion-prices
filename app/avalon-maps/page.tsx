@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 
+import { useLanguage } from "@/components/language-provider";
 import mapsData from "@/src/data/maps.json";
 
 type AvalonMap = {
@@ -12,6 +14,8 @@ type AvalonMap = {
 };
 
 const maps = (mapsData as { maps: AvalonMap[] }).maps;
+const SEARCH_FRAME_TEXTURE =
+  "https://www.figma.com/api/mcp/asset/0e6d89f8-72d6-4409-bcbc-d10d5916bead";
 
 function toRoman(tier: number): string {
   const romans: Record<number, string> = {
@@ -28,7 +32,9 @@ function toRoman(tier: number): string {
 }
 
 export default function AvalonMapsPage() {
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
+  const [failedImageIds, setFailedImageIds] = useState<Set<number>>(new Set());
 
   const filteredMaps = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -57,23 +63,35 @@ export default function AvalonMapsPage() {
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-4 py-10 sm:px-6">
       <header className="space-y-2">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-          Avalon Maps
+          {t("nav.avalonMaps")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Поиск по названию карты, тиру или типу ресурса.
+          {t("home.subtitle")}
         </p>
       </header>
 
-      <div className="relative max-w-xl">
-        <input
-          type="text"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Например: T6, Cases или ORE"
-          className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+      <div className="relative h-[30px] w-full max-w-[277px] rounded-[30px] p-[3px]">
+        <div
+          className="pointer-events-none absolute inset-0 rounded-[30px] bg-cover bg-center bg-no-repeat"
+          style={{ backgroundImage: `url(${SEARCH_FRAME_TEXTURE})` }}
         />
+        <div className="relative h-[24px] w-[271px] max-w-full rounded-[20px] shadow-[-1px_-1px_0.9px_0px_#707275,1px_1px_0.9px_0px_#34353d]">
+          <div className="pointer-events-none absolute inset-0 rounded-[20px] bg-gradient-to-b from-[#ffd8ad] to-[#ac9275]" />
+          <div className="pointer-events-none absolute inset-0 rounded-[inherit] shadow-[inset_0px_0px_1.8px_0.3px_rgba(0,0,0,0.69),inset_2px_2px_1.8px_0px_rgba(0,0,0,0.27)]" />
+          <input
+            type="text"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder={t("home.searchPlaceholder")}
+            className="relative z-10 h-full w-full bg-transparent pb-0 pl-3 pr-8 pt-[2px] font-['PT_Serif'] text-[14px] leading-[normal] tracking-[-0.12px] text-[#5e422e] outline-none placeholder:text-[#5e422e] focus-visible:ring-0"
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute right-3 top-1/2 h-0 w-0 -translate-y-1/2 border-l-[5px] border-r-[5px] border-t-[5px] border-l-transparent border-r-transparent border-t-[#5e422e]"
+          />
+        </div>
         {suggestions.length > 0 && (
-          <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border bg-popover shadow-md">
+          <div className="absolute left-[3px] top-[calc(100%+4px)] z-20 w-[271px] max-w-[calc(100%-6px)] overflow-hidden rounded-md border border-border bg-popover shadow-md">
             {suggestions.map((suggestion) => (
               <button
                 key={suggestion.name}
@@ -92,7 +110,8 @@ export default function AvalonMapsPage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Найдено карт: <span className="font-medium text-foreground">{filteredMaps.length}</span>
+        {t("maps.foundMaps")}:{" "}
+        <span className="font-medium text-foreground">{filteredMaps.length}</span>
       </p>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -109,16 +128,21 @@ export default function AvalonMapsPage() {
                 </span>
               </div>
             </div>
-            <div className="aspect-square bg-muted">
-              <img
-                src={`/maps/${map.image}`}
+            <div className="relative aspect-square bg-muted">
+              <Image
+                src={failedImageIds.has(map.id) ? "/maps/placeholder.svg" : `/maps/${map.image}`}
                 alt={map.name}
-                className="h-full w-full object-cover"
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                className="object-cover"
                 loading="lazy"
-                onError={(event) => {
-                  const target = event.currentTarget;
-                  target.onerror = null;
-                  target.src = "/maps/placeholder.svg";
+                onError={() => {
+                  setFailedImageIds((prev) => {
+                    if (prev.has(map.id)) return prev;
+                    const next = new Set(prev);
+                    next.add(map.id);
+                    return next;
+                  });
                 }}
               />
             </div>
@@ -128,7 +152,7 @@ export default function AvalonMapsPage() {
 
       {filteredMaps.length === 0 && (
         <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-10 text-center text-sm text-muted-foreground">
-          По вашему запросу карты не найдены.
+          {t("home.notFound")}
         </p>
       )}
     </main>

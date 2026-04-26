@@ -3,14 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowDown,
-  ArrowLeft,
   ArrowUp,
   ArrowUpDown,
   Check,
   ChevronsUpDown,
   Loader2,
 } from "lucide-react";
-import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -34,6 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useLanguage } from "@/components/language-provider";
 import { cn } from "@/lib/utils";
 
 type ItemOption = {
@@ -66,8 +65,6 @@ function itemLabel(item: ItemOption): string {
   return `${title} (${tierText})`;
 }
 
-const numberFmt = new Intl.NumberFormat("ru-RU");
-
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <ArrowUpDown className="ml-1 size-3.5 opacity-50" />;
   return dir === "asc" ? (
@@ -78,6 +75,7 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
 }
 
 export default function PriceCheckerPage() {
+  const { language, t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
@@ -94,6 +92,10 @@ export default function PriceCheckerPage() {
   const [cityFilter, setCityFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortBy>("sellPriceMin");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const numberFmt = useMemo(
+    () => new Intl.NumberFormat(language === "ru" ? "ru-RU" : "en-US"),
+    [language],
+  );
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedQuery(query), 280);
@@ -138,17 +140,17 @@ export default function PriceCheckerPage() {
       const data = await res.json();
       if (!res.ok) {
         setPriceError(
-          typeof data?.error === "string" ? data.error : "Не удалось загрузить цены",
+          typeof data?.error === "string" ? data.error : t("price.failedLoad"),
         );
         return;
       }
       setPriceRows(Array.isArray(data.rows) ? data.rows : []);
     } catch {
-      setPriceError("Ошибка сети");
+      setPriceError(t("price.networkError"));
     } finally {
       setPricesLoading(false);
     }
-  }, [enchantFilter, qualityFilter]);
+  }, [enchantFilter, qualityFilter, t]);
 
   useEffect(() => {
     if (!selected) return;
@@ -195,23 +197,17 @@ export default function PriceCheckerPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-4 py-10 sm:px-6">
       <div className="space-y-2 text-center sm:text-left">
-        <Button asChild variant="outline" className="mb-2 w-fit">
-          <Link href="/">
-            <ArrowLeft className="size-4" />
-            На главную
-          </Link>
-        </Button>
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-          Albion Price Checker
+          {t("price.title")}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Найдите предмет и посмотрите цены по городам с фильтрами tier, чар и качества.
+          {t("price.subtitle")}
         </p>
       </div>
 
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-foreground">
-          Предмет
+          {t("price.itemLabel")}
         </label>
         <div className="grid max-w-xl grid-cols-1 gap-2 sm:grid-cols-3">
           <select
@@ -223,7 +219,7 @@ export default function PriceCheckerPage() {
             }}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="all">Tier: Все</option>
+            <option value="all">{t("price.tierAll")}</option>
             <option value="1">Tier: T1</option>
             <option value="2">Tier: T2</option>
             <option value="3">Tier: T3</option>
@@ -238,22 +234,22 @@ export default function PriceCheckerPage() {
             onChange={(e) => setEnchantFilter(Number.parseInt(e.target.value, 10))}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value={0}>Чары: без чар</option>
-            <option value={1}>Чары: .1</option>
-            <option value={2}>Чары: .2</option>
-            <option value={3}>Чары: .3</option>
-            <option value={4}>Чары: .4</option>
+            <option value={0}>{t("price.enchantNone")}</option>
+            <option value={1}>{t("price.enchant")}: .1</option>
+            <option value={2}>{t("price.enchant")}: .2</option>
+            <option value={3}>{t("price.enchant")}: .3</option>
+            <option value={4}>{t("price.enchant")}: .4</option>
           </select>
           <select
             value={qualityFilter}
             onChange={(e) => setQualityFilter(Number.parseInt(e.target.value, 10))}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value={1}>Качество: Обычное (1)</option>
-            <option value={2}>Качество: Хорошее (2)</option>
-            <option value={3}>Качество: Выдающееся (3)</option>
-            <option value={4}>Качество: Отличное (4)</option>
-            <option value={5}>Качество: Шедевр (5)</option>
+            <option value={1}>{t("price.qualityNormal")}</option>
+            <option value={2}>{t("price.qualityGood")}</option>
+            <option value={3}>{t("price.qualityOutstanding")}</option>
+            <option value={4}>{t("price.qualityExcellent")}</option>
+            <option value={5}>{t("price.qualityMasterpiece")}</option>
           </select>
         </div>
         <Popover open={open} onOpenChange={setOpen}>
@@ -265,7 +261,7 @@ export default function PriceCheckerPage() {
               className="h-11 w-full max-w-xl justify-between font-normal"
             >
               <span className="truncate text-left">
-                {selected ? itemLabel(selected) : "Выберите предмет…"}
+                {selected ? itemLabel(selected) : t("price.selectItem")}
               </span>
               <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
             </Button>
@@ -273,7 +269,7 @@ export default function PriceCheckerPage() {
           <PopoverContent className="w-[min(100vw-2rem,36rem)] max-w-xl p-0">
             <Command shouldFilter={false}>
               <CommandInput
-                placeholder="Поиск по названию или ID…"
+                placeholder={t("price.searchByNameOrId")}
                 value={query}
                 onValueChange={setQuery}
               />
@@ -281,14 +277,14 @@ export default function PriceCheckerPage() {
                 {itemsLoading && debouncedQuery.trim().length > 0 ? (
                   <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" />
-                    Поиск…
+                    {t("price.searching")}
                   </div>
                 ) : (
                   <>
                     <CommandEmpty>
                       {debouncedQuery.trim().length === 0
-                        ? "Введите запрос для поиска"
-                        : "Ничего не найдено"}
+                        ? t("price.typeToSearch")
+                        : t("price.nothingFound")}
                     </CommandEmpty>
                     <CommandGroup>
                       {items.map((item) => (
@@ -328,14 +324,14 @@ export default function PriceCheckerPage() {
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-medium text-foreground">Рыночные цены</h2>
+        <h2 className="text-lg font-medium text-foreground">{t("price.marketPrices")}</h2>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <select
             value={cityFilter}
             onChange={(e) => setCityFilter(e.target.value)}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="all">Город: Все</option>
+            <option value="all">{t("price.cityAll")}</option>
             {availableCities.map((city) => (
               <option key={city} value={city}>
                 {city}
@@ -347,24 +343,24 @@ export default function PriceCheckerPage() {
             onChange={(e) => setSortDir(e.target.value as SortDir)}
             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="desc">Порядок: по убыванию</option>
-            <option value="asc">Порядок: по возрастанию</option>
+            <option value="desc">{t("price.orderDesc")}</option>
+            <option value="asc">{t("price.orderAsc")}</option>
           </select>
           <div className="flex items-center rounded-md border border-input bg-muted/30 px-3 text-xs text-muted-foreground sm:col-span-1">
-            Сортировка: клик по заголовку столбца
+            {t("price.sortHint")}
           </div>
         </div>
 
         {!selected && (
           <p className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
-            Выберите предмет выше — таблица заполнится автоматически.
+            {t("price.selectItemHint")}
           </p>
         )}
 
         {selected && pricesLoading && (
           <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
-            Загрузка цен для{" "}
+            {t("price.loadingFor")}{" "}
             <span className="font-medium text-foreground">
               {itemLabel(selected)}
             </span>
@@ -383,14 +379,14 @@ export default function PriceCheckerPage() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead>Город</TableHead>
+                  <TableHead>{t("price.city")}</TableHead>
                   <TableHead className="text-right">
                     <button
                       type="button"
                       onClick={() => toggleSort("sellPriceMin")}
                       className="inline-flex items-center text-right hover:text-foreground"
                     >
-                      Цена продажи (Sell Price Min)
+                      {t("price.sellPriceMin")}
                       <SortIcon active={sortBy === "sellPriceMin"} dir={sortDir} />
                     </button>
                   </TableHead>
@@ -400,7 +396,7 @@ export default function PriceCheckerPage() {
                       onClick={() => toggleSort("buyPriceMax")}
                       className="inline-flex items-center text-right hover:text-foreground"
                     >
-                      Цена покупки (Buy Price Max)
+                      {t("price.buyPriceMax")}
                       <SortIcon active={sortBy === "buyPriceMax"} dir={sortDir} />
                     </button>
                   </TableHead>
@@ -410,7 +406,7 @@ export default function PriceCheckerPage() {
                       onClick={() => toggleSort("updatedAtEpoch")}
                       className="inline-flex items-center text-right hover:text-foreground"
                     >
-                      Время обновления
+                      {t("price.updatedAt")}
                       <SortIcon active={sortBy === "updatedAtEpoch"} dir={sortDir} />
                     </button>
                   </TableHead>
@@ -438,7 +434,7 @@ export default function PriceCheckerPage() {
 
         {selected && !pricesLoading && !priceError && displayedRows.length === 0 && (
           <p className="rounded-lg border border-border bg-muted/30 px-4 py-6 text-center text-sm text-muted-foreground">
-            Нет данных по выбранным фильтрам города/сортировки.
+            {t("price.noData")}
           </p>
         )}
       </section>

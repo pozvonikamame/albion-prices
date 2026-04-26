@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=PT+Serif+Caption&display=swap");
 
 :root {
   --background: hsl(240 10% 3.9%);
@@ -22,6 +23,29 @@
   --ring: hsl(240 4.9% 83.9%);
   --radius: 0.5rem;
   color-scheme: dark;
+}
+
+:root.light {
+  --background: #EAC69F;
+  --foreground: #2f1d0e;
+  --card: #f4dfc6;
+  --card-foreground: #2f1d0e;
+  --popover: #f4dfc6;
+  --popover-foreground: #2f1d0e;
+  --primary: #5b3517;
+  --primary-foreground: #fff8ef;
+  --secondary: #ddb78f;
+  --secondary-foreground: #2f1d0e;
+  --muted: #d8ac80;
+  --muted-foreground: #6c4a2f;
+  --accent: #d3a171;
+  --accent-foreground: #2f1d0e;
+  --destructive: hsl(0 84.2% 60.2%);
+  --destructive-foreground: hsl(0 0% 98%);
+  --border: #c79361;
+  --input: #d4a676;
+  --ring: #8f5f37;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -54,5 +78,24 @@
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: "PT Serif Caption", serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: "PT Serif", serif;
+  }
+
+  :root.light h1,
+  :root.light h2,
+  :root.light h3,
+  :root.light h4,
+  :root.light h5,
+  :root.light h6 {
+    color: #5e422e !important;
   }
 }
