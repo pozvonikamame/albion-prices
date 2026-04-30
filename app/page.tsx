@@ -20,6 +20,28 @@ const VISIBLE_STEP = 36;
 const SEARCH_FRAME_TEXTURE =
   "https://www.figma.com/api/mcp/asset/0e6d89f8-72d6-4409-bcbc-d10d5916bead";
 
+function normalizeSearchValue(value: string): string {
+  return value.toLowerCase().replace(/[\s-]+/g, "");
+}
+
+function isSubsequenceMatch(query: string, candidate: string): boolean {
+  let queryIndex = 0;
+  for (let i = 0; i < candidate.length && queryIndex < query.length; i += 1) {
+    if (candidate[i] === query[queryIndex]) {
+      queryIndex += 1;
+    }
+  }
+  return queryIndex === query.length;
+}
+
+function matchesMapName(query: string, mapName: string): boolean {
+  const normalizedName = normalizeSearchValue(mapName);
+  if (normalizedName.includes(query)) {
+    return true;
+  }
+  return isSubsequenceMatch(query, normalizedName);
+}
+
 function toRoman(tier: number): string {
   const romans: Record<number, string> = {
     1: "I",
@@ -49,9 +71,9 @@ export default function Home() {
   }, [query]);
 
   const filteredMaps = useMemo(() => {
-    const q = debouncedQuery.trim().toLowerCase();
+    const q = normalizeSearchValue(debouncedQuery.trim());
     if (!q) return maps;
-    return maps.filter((map) => map.name.toLowerCase().includes(q));
+    return maps.filter((map) => matchesMapName(q, map.name));
   }, [debouncedQuery]);
 
   useEffect(() => {
@@ -59,11 +81,11 @@ export default function Home() {
   }, [debouncedQuery]);
 
   const suggestions = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = normalizeSearchValue(query.trim());
     if (!q) return [];
     const values = new Map<string, number>();
     for (const map of maps) {
-      if (map.name.toLowerCase().includes(q) && !values.has(map.name)) {
+      if (matchesMapName(q, map.name) && !values.has(map.name)) {
         values.set(map.name, map.tier);
       }
     }
@@ -90,7 +112,7 @@ export default function Home() {
       </header>
 
       <div className="flex w-full items-center justify-between gap-4">
-        <div className="relative h-[30px] w-full max-w-[277px] rounded-[30px] p-[3px]">
+        <div className="relative h-[32px] w-full max-w-[277px] rounded-[30px] p-[4px_3px]">
           <div
             className="pointer-events-none absolute inset-0 rounded-[30px] bg-cover bg-center bg-no-repeat"
             style={{ backgroundImage: `url(${SEARCH_FRAME_TEXTURE})` }}
