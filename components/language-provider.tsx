@@ -8,14 +8,14 @@ type TranslationDictionary = Record<string, string>;
 
 const translations: Record<Language, TranslationDictionary> = {
   ru: {
-    "nav.avalonMaps": "Avalon Maps",
+    "nav.avalonMaps": "Карты авалона",
     "nav.priceChecker": "Price Checker",
     "nav.craftingCalculator": "Crafting Calculator",
     "theme.switchToDark": "Переключить на темную тему",
     "theme.switchToLight": "Переключить на светлую тему",
     "lang.switchToRu": "Переключить язык на русский",
     "lang.switchToEn": "Switch language to English",
-    "home.subtitle": "Поиск по названию карты, тиру или типу ресурса.",
+    "home.subtitle": "Поиск работает по неполным названиям. Вводи первые буквы первого слова и без пробела первые буквы второго слова. И будет тебе счастье.\nУдачи на путях авалона!",
     "home.searchPlaceholder": "Поиск...",
     "home.shownMaps": "Показано карт",
     "home.of": "из",
@@ -62,7 +62,7 @@ const translations: Record<Language, TranslationDictionary> = {
     "theme.switchToLight": "Switch to light theme",
     "lang.switchToRu": "Switch language to Russian",
     "lang.switchToEn": "Switch language to English",
-    "home.subtitle": "Search by map name, tier, or resource type.",
+    "home.subtitle": "Search supports partial names. Type the first letters of the first word and, without a space, the first letters of the second word to find matches quickly.\nGood luck on the roads of Avalon!",
     "home.searchPlaceholder": "Search...",
     "home.shownMaps": "Shown maps",
     "home.of": "of",

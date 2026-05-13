@@ -2,17 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { useLanguage } from "@/components/language-provider";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
   href: string;
   match: string[];
 };
+
+/** Замените SVG в public/icons — пути зафиксированы в разметке */
+const LANG_ICON_TO_EN = "/icons/lang-en.svg";
+const LANG_ICON_TO_RU = "/icons/lang-ru.svg";
+const THEME_ICON_TO_LIGHT = "/icons/theme-light.svg";
+const THEME_ICON_TO_DARK = "/icons/theme-dark.svg";
 
 const navItems: NavItem[] = [
   { href: "/", match: ["/", "/avalon-maps"] },
@@ -45,8 +49,8 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="border-b border-border bg-background/90 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+    <header className="mt-3 bg-background/90 backdrop-blur">
+      <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 pb-3 pt-4 sm:px-6">
         <nav className="flex flex-wrap items-center gap-2 sm:gap-4">
           {navItems.map((item) => {
             const isActive = item.match.includes(pathname);
@@ -61,7 +65,7 @@ export function SiteHeader() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground",
+                  "rounded-md px-2 py-1 text-base text-muted-foreground transition-colors hover:text-foreground",
                   isActive && "font-bold text-foreground",
                 )}
                 aria-current={isActive ? "page" : undefined}
@@ -73,27 +77,46 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="icon"
             onClick={toggleLanguage}
             aria-label={language === "ru" ? t("lang.switchToEn") : t("lang.switchToRu")}
             title={language === "ru" ? t("lang.switchToEn") : t("lang.switchToRu")}
-            className="text-[11px] font-semibold"
+            className={cn("site-header-toggle inline-flex items-center justify-center")}
           >
-            {language.toUpperCase()}
-          </Button>
-          <Button
+            <span className="site-header-toggle__disc">
+              <img
+                src={language === "ru" ? LANG_ICON_TO_EN : LANG_ICON_TO_RU}
+                alt=""
+                width={16}
+                height={16}
+                decoding="async"
+                className="pointer-events-none size-4 shrink-0 select-none header-theme-icon"
+                aria-hidden
+              />
+            </span>
+          </button>
+          <button
             type="button"
-            variant="outline"
-            size="icon"
             onClick={toggleTheme}
             aria-label={isLightTheme ? t("theme.switchToDark") : t("theme.switchToLight")}
             title={isLightTheme ? t("theme.switchToDark") : t("theme.switchToLight")}
+            className={cn(
+              "site-header-toggle inline-flex items-center justify-center text-[#e8e8ea]",
+            )}
           >
-            {isLightTheme ? <Moon className="size-4" /> : <Sun className="size-4" />}
-          </Button>
+            <span className="site-header-toggle__disc">
+              <img
+                src={isLightTheme ? THEME_ICON_TO_DARK : THEME_ICON_TO_LIGHT}
+                alt=""
+                width={16}
+                height={16}
+                decoding="async"
+                className="pointer-events-none size-4 shrink-0 select-none header-theme-icon"
+                aria-hidden
+              />
+            </span>
+          </button>
         </div>
       </div>
     </header>

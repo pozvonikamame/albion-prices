@@ -1,36 +1,104 @@
 @import "tailwindcss";
-@import url("https://fonts.googleapis.com/css2?family=PT+Serif:wght@400;700&family=PT+Serif+Caption&display=swap");
 
 :root {
-  --background: hsl(240 10% 3.9%);
-  --foreground: hsl(0 0% 98%);
-  --card: hsl(240 10% 3.9%);
-  --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(240 10% 3.9%);
-  --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(0 0% 98%);
-  --primary-foreground: hsl(240 5.9% 10%);
-  --secondary: hsl(240 3.7% 15.9%);
-  --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(240 3.7% 15.9%);
-  --muted-foreground: hsl(240 5% 64.9%);
-  --accent: hsl(240 3.7% 15.9%);
-  --accent-foreground: hsl(0 0% 98%);
-  --destructive: hsl(0 62.8% 30.6%);
+  --background: hsl(222 16% 8%);
+  --foreground: hsl(40 18% 94%);
+  --card: hsl(222 14% 11%);
+  --card-foreground: hsl(40 16% 92%);
+  --popover: hsl(222 14% 11%);
+  --popover-foreground: hsl(40 16% 92%);
+  --primary: hsl(43 62% 58%);
+  --primary-foreground: hsl(222 18% 10%);
+  --secondary: hsl(222 12% 16%);
+  --secondary-foreground: hsl(40 14% 90%);
+  --muted: hsl(222 12% 16%);
+  --muted-foreground: hsl(35 10% 62%);
+  --accent: hsl(222 12% 18%);
+  --accent-foreground: hsl(40 16% 92%);
+  --destructive: hsl(0 62.8% 45%);
   --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(240 3.7% 15.9%);
-  --input: hsl(240 3.7% 15.9%);
-  --ring: hsl(240 4.9% 83.9%);
+  --border: hsl(222 10% 22%);
+  --input: hsl(222 10% 20%);
+  --ring: hsl(43 55% 52%);
   --radius: 0.5rem;
   color-scheme: dark;
+
+  /* Главная: тёмная тема */
+  --home-page-bg: hsl(222 16% 8%);
+  --home-heading: hsl(40 28% 90%);
+  --home-body: hsl(35 12% 72%);
+  --home-search-rail: linear-gradient(
+    to bottom,
+    hsl(220 10% 38%) 0%,
+    hsl(220 12% 24%) 35%,
+    hsl(220 14% 14%) 70%,
+    hsl(220 10% 18%) 100%
+  );
+  --home-search-rail-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 6px 22px rgba(0, 0, 0, 0.4);
+  --home-search-field: hsl(220 12% 16%);
+  --home-search-field-inset: inset 0px 0px 3.6px 0.6px rgba(0, 0, 0, 0.55),
+    inset 2px 2px 3px 0px rgba(255, 255, 255, 0.04);
+  --home-input-text: hsl(40 20% 92%);
+  --home-input-placeholder: hsl(220 8% 52%);
+  --home-search-icon: hsl(220 8% 55%);
+  --home-search-icon-focus: hsl(43 45% 68%);
+  --home-suggest-bg: hsl(222 14% 12%);
+  --home-suggest-border: hsl(222 10% 26%);
+  --home-suggest-text: hsl(40 18% 88%);
+  --home-suggest-hover: hsl(222 12% 18%);
+  --home-suggest-badge-bg: hsl(220 12% 20%);
+  --home-suggest-badge-text: hsl(40 22% 88%);
+  --home-suggest-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --home-map-title: hsl(40 26% 88%);
+  --home-map-frame: #404446;
+  /* Превью карт: сдвиг оттенка в более холодную гамму (только тёмная тема) */
+  --home-map-image-filter: hue-rotate(-18deg) saturate(0.84) brightness(0.99) contrast(1.02);
+  --home-empty-border: hsl(222 10% 28%);
+  --home-empty-bg: hsl(222 12% 14% / 0.55);
+  --home-empty-text: hsl(35 10% 68%);
+  --home-selection-bg: hsl(43 40% 36%);
+  --home-selection-text: hsl(40 30% 96%);
+  --home-edge-vignette: rgba(42, 48, 50, 0.42);
+
+  /* Декор: в тёмной теме маска + заливка (см. .decor-themed, components/decor-themed-img.tsx) */
+  --decor-fill: #404446;
+
+  /* Кнопки тема/язык: тень и градиенты */
+  --site-header-toggle-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(255, 255, 255, 0.05);
+  --site-header-toggle-bg: radial-gradient(
+      closest-side circle at 50% 50%,
+      #1a1b1f 0%,
+      #1a1b1f 71%,
+      rgba(90, 92, 102, 0) 81%,
+      transparent 100%
+    ),
+    linear-gradient(
+      to bottom,
+      #9b9ca6 0%,
+      #5a5c68 28%,
+      #2c2e36 65%,
+      #4a4c58 86%,
+      #35343a 100%
+    );
+
+  --site-header-toggle-disc-bg: radial-gradient(
+    circle at 48% 53%,
+    #5c5c62 0%,
+    #3a3a40 50%,
+    #161618 100%
+  );
+  --site-header-toggle-disc-inset: inset -0.31px -1.04px 1.46px rgba(0, 0, 0, 0.45),
+    inset 0.31px 1.04px 1.46px rgba(255, 255, 255, 0.12);
+
+  --header-icon-filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.45));
 }
 
 :root.light {
-  --background: #EAC69F;
+  --background: #f3d7b8;
   --foreground: #2f1d0e;
-  --card: #f4dfc6;
+  --card: #f3d7b8;
   --card-foreground: #2f1d0e;
-  --popover: #f4dfc6;
+  --popover: #f3d7b8;
   --popover-foreground: #2f1d0e;
   --primary: #5b3517;
   --primary-foreground: #fff8ef;
@@ -46,6 +114,72 @@
   --input: #d4a676;
   --ring: #8f5f37;
   color-scheme: light;
+
+  /* Главная: светлая тема */
+  --home-page-bg: #f3d7b8;
+  --home-heading: #5b402c;
+  --home-body: #5e422e;
+  --home-search-rail: linear-gradient(
+    to bottom,
+    #8b8c9a 0%,
+    #525464 35%,
+    #32333b 70%,
+    #3d3d44 100%
+  );
+  --home-search-rail-shadow: none;
+  --home-search-field: #e6c6a3;
+  --home-search-field-inset: inset 0px 0px 3.6px 0.6px rgba(0, 0, 0, 0.65),
+    inset 4px 4px 3.6px 0px rgba(85, 65, 28, 0.27);
+  --home-input-text: #5e422e;
+  --home-input-placeholder: #936f5c;
+  --home-search-icon: #936f5c;
+  --home-search-icon-focus: #5e422e;
+  --home-suggest-bg: #f3d7b8;
+  --home-suggest-border: #b89473;
+  --home-suggest-text: #5e422e;
+  --home-suggest-hover: #ddb78f;
+  --home-suggest-badge-bg: #e7c59f;
+  --home-suggest-badge-text: #5e422e;
+  --home-suggest-shadow: 0 4px 14px rgba(95, 71, 54, 0.18);
+  --home-map-title: #5e422e;
+  --home-map-frame: #f4c37e;
+  --home-map-image-filter: none;
+  --home-empty-border: #c79361;
+  --home-empty-bg: rgba(231, 197, 159, 0.4);
+  --home-empty-text: #6c4a2f;
+  --home-selection-bg: #c9a574;
+  --home-selection-text: #2a1a0f;
+  --home-edge-vignette: rgba(206, 153, 112, 0.22);
+
+  --decor-fill: #404446;
+
+  --site-header-toggle-shadow: 0 2px 5.8px #b79979;
+  --site-header-toggle-bg: radial-gradient(
+      closest-side circle at 50% 50%,
+      #030304 0%,
+      #030304 71%,
+      rgba(114, 114, 128, 0) 81%,
+      transparent 100%
+    ),
+    linear-gradient(
+      to bottom,
+      #bebdb4 0%,
+      #818498 28%,
+      #34373e 65%,
+      #757584 86%,
+      #504b4c 100%
+    );
+
+  --site-header-toggle-disc-bg: radial-gradient(
+    circle at 48% 53%,
+    #4e4e52 0%,
+    #323235 50%,
+    #121213 100%
+  );
+  --site-header-toggle-disc-inset: inset -0.31px -1.04px 1.46px rgba(10, 11, 12, 0.63),
+    inset 0.31px 1.04px 1.46px rgba(255, 255, 255, 0.28);
+
+  --header-icon-filter: none;
 }
 
 @theme inline {
@@ -76,18 +210,32 @@
     @apply border-border;
   }
 
-  body {
-    @apply bg-background text-foreground antialiased;
-    font-family: "PT Serif Caption", serif;
+  /* Лёгкий градиент от краёв вьюпорта (~5%), цвет #CE9970 */
+  .edge-vignette {
+    position: fixed;
+    inset: 0;
+    z-index: 15;
+    pointer-events: none;
+    background:
+      linear-gradient(to right, var(--home-edge-vignette) 0%, transparent 5%),
+      linear-gradient(to left, var(--home-edge-vignette) 0%, transparent 5%),
+      linear-gradient(to bottom, var(--home-edge-vignette) 0%, transparent 5%),
+      linear-gradient(to top, var(--home-edge-vignette) 0%, transparent 5%);
   }
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    font-family: "PT Serif", serif;
+  html {
+    font-family: var(--font-pt-serif), ui-serif, Georgia, "Times New Roman", serif;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font-family: inherit;
   }
 
   :root.light h1,
@@ -97,5 +245,82 @@
   :root.light h5,
   :root.light h6 {
     color: #5e422e !important;
+  }
+}
+
+/* Главная: поиск + карты (утилиты) */
+@layer utilities {
+  .home-search-rail {
+    background: var(--home-search-rail);
+    box-shadow: var(--home-search-rail-shadow);
+  }
+
+  .home-search-field {
+    background-color: var(--home-search-field);
+    box-shadow: var(--home-search-field-inset);
+  }
+
+  .map-preview-mask {
+    -webkit-mask-image: url("/maps/map-mask.svg");
+    mask-image: url("/maps/map-mask.svg");
+    -webkit-mask-size: 100% 100%;
+    mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+
+  .home-map-image {
+    filter: var(--home-map-image-filter);
+  }
+
+  /* Шапка: круг 40×40 — тема и язык (слой фона) */
+  .site-header-toggle {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    background-color: transparent;
+    box-shadow: var(--site-header-toggle-shadow);
+    background-image: var(--site-header-toggle-bg);
+  }
+
+  .site-header-toggle:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  .site-header-toggle__disc {
+    width: 28px;
+    height: 28px;
+    border-radius: 9999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background-image: var(--site-header-toggle-disc-bg);
+    box-shadow: var(--site-header-toggle-disc-inset);
+  }
+
+  /* Светлая тема: виден оригинальный img; тёмная: слой с mask + var(--decor-fill) */
+  html.light .decor-themed .decor-themed__dark {
+    visibility: hidden;
+  }
+  html.light .decor-themed .decor-themed__light {
+    visibility: visible;
+  }
+  html:not(.light) .decor-themed .decor-themed__light {
+    visibility: hidden;
+  }
+  html:not(.light) .decor-themed .decor-themed__dark {
+    visibility: visible;
+  }
+
+  .header-theme-icon {
+    filter: var(--header-icon-filter);
   }
 }
