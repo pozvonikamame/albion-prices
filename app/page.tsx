@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { DecorThemedImgFill } from "@/components/decor-themed-img";
+import { HomeNotice } from "@/components/home-notice";
 import { HomeSearchTypingDemo } from "@/components/home-search-typing-demo";
 import { useLanguage } from "@/components/language-provider";
 import { Button } from "@/components/ui/button";
@@ -144,7 +145,7 @@ export default function Home() {
   const hasMore = visibleCount < filteredMaps.length;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-8 bg-[var(--home-page-bg)] px-4 pt-20 pb-10 sm:px-6">
+    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 bg-[var(--home-page-bg)] px-4 pt-12 pb-10 sm:gap-8 sm:px-6 sm:pt-16">
       <header className="mx-auto flex max-w-3xl flex-col items-center gap-3 text-center">
         <h1 className="text-[42px] font-bold tracking-[0.02em] text-[var(--home-heading)] sm:text-[56px]">
           {t("nav.avalonMaps")}
@@ -154,7 +155,7 @@ export default function Home() {
         </p>
       </header>
 
-      <div className="mx-auto mt-8 grid w-full max-w-6xl items-center gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,554px)_minmax(0,1fr)] md:gap-0">
+      <div className="mx-auto grid w-full max-w-6xl items-center gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,554px)_minmax(0,1fr)] md:gap-0">
         <div className="hidden md:block">
           <DecorThemedImgFill
             src="/decor/search-left.svg"
@@ -290,6 +291,8 @@ export default function Home() {
           {t("home.notFound")}
         </p>
       )}
+
+      <HomeNotice />
     </main>
   );
 }

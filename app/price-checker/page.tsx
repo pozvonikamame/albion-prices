@@ -32,8 +32,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ItemIcon } from "@/components/item-icon";
 import { useLanguage } from "@/components/language-provider";
+import {
+  buildClientPriceCacheKey,
+  readClientPriceCache,
+  writeClientPriceCache,
+} from "@/lib/price-cache-client";
+import { formatItemLabel } from "@/lib/item-display";
+import { resolveItemIconId } from "@/lib/item-icon";
+import { pushRecentItem, readRecentItems, type RecentItem } from "@/lib/recent-items";
 import { cn } from "@/lib/utils";
+
+type ItemCapabilities = {
+  tiers: Array<{ tier: number; id: number }>;
+  enchants: number[];
+  qualities: number[];
+  enchantStyle: "none" | "gear" | "resource";
+};
 
 type ItemOption = {
   id: number;
@@ -42,6 +58,9 @@ type ItemOption = {
   ruName: string;
   baseName: string;
   tier: number | null;
+  capabilities: ItemCapabilities;
+  listEnchant?: number;
+  selectedEnchant?: number;
 };
 
 type PriceRow = {
@@ -50,20 +69,30 @@ type PriceRow = {
   buyPriceMax: number;
   updatedAt: string;
   updatedAtEpoch: number | null;
+  stale?: boolean;
 };
 
 type SortBy = "sellPriceMin" | "buyPriceMax" | "updatedAtEpoch";
 type SortDir = "asc" | "desc";
 
-function itemLabel(item: ItemOption): string {
-  const title =
-    item.ruName?.trim() ||
-    item.baseName?.trim() ||
-    item.name?.trim() ||
-    item.uniqueName;
-  const tierText = item.tier ? `T${item.tier}` : "T?";
-  return `${title} (${tierText})`;
+function itemIconId(
+  item: ItemOption,
+  enchant: number,
+): string {
+  return resolveItemIconId(
+    item.uniqueName,
+    enchant,
+    item.capabilities?.enchantStyle ?? "none",
+  );
 }
+
+const QUALITY_LABEL_KEYS: Record<number, string> = {
+  1: "price.qualityNormal",
+  2: "price.qualityGood",
+  3: "price.qualityOutstanding",
+  4: "price.qualityExcellent",
+  5: "price.qualityMasterpiece",
+};
 
 function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   if (!active) return <ArrowUpDown className="ml-1 size-3.5 opacity-50" />;
@@ -82,24 +111,30 @@ export default function PriceCheckerPage() {
   const [items, setItems] = useState<ItemOption[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [selected, setSelected] = useState<ItemOption | null>(null);
-  const [tierFilter, setTierFilter] = useState<string>("all");
   const [enchantFilter, setEnchantFilter] = useState<number>(0);
   const [qualityFilter, setQualityFilter] = useState<number>(1);
+  const [tierSwitching, setTierSwitching] = useState(false);
 
   const [pricesLoading, setPricesLoading] = useState(false);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [priceRows, setPriceRows] = useState<PriceRow[]>([]);
+  const [hasStaleRows, setHasStaleRows] = useState(false);
   const [cityFilter, setCityFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<SortBy>("sellPriceMin");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const numberFmt = useMemo(
     () => new Intl.NumberFormat(language === "ru" ? "ru-RU" : "en-US"),
     [language],
   );
 
   useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedQuery(query), 280);
-    return () => window.clearTimeout(t);
+    setRecentItems(readRecentItems());
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedQuery(query), 280);
+    return () => window.clearTimeout(timer);
   }, [query]);
 
   useEffect(() => {
@@ -109,8 +144,7 @@ export default function PriceCheckerPage() {
     }
     let cancelled = false;
     setItemsLoading(true);
-    const tierParam = tierFilter === "all" ? "" : `&tier=${tierFilter}`;
-    fetch(`/api/items?q=${encodeURIComponent(debouncedQuery)}${tierParam}`)
+    fetch(`/api/items?q=${encodeURIComponent(debouncedQuery)}`)
       .then((r) => r.json())
       .then((data: ItemOption[]) => {
         if (!cancelled) setItems(Array.isArray(data) ? data : []);
@@ -124,12 +158,69 @@ export default function PriceCheckerPage() {
     return () => {
       cancelled = true;
     };
-  }, [debouncedQuery, tierFilter]);
+  }, [debouncedQuery]);
+
+  const showTierOptions = (selected?.capabilities?.tiers.length ?? 0) > 1;
+  const showEnchantOptions = (selected?.capabilities?.enchants.length ?? 0) > 1;
+  const showQualityOptions = (selected?.capabilities?.qualities.length ?? 0) > 1;
+  const showItemOptions = Boolean(
+    selected && (showTierOptions || showEnchantOptions || showQualityOptions),
+  );
+
+  const handleSelectItem = useCallback((item: ItemOption) => {
+    const enchant = item.listEnchant ?? item.selectedEnchant ?? 0;
+    const base: Omit<ItemOption, "listEnchant" | "selectedEnchant"> = {
+      id: item.id,
+      uniqueName: item.uniqueName,
+      name: item.name,
+      ruName: item.ruName,
+      baseName: item.baseName,
+      tier: item.tier,
+      capabilities: item.capabilities,
+    };
+    setSelected(base);
+    setEnchantFilter(enchant);
+    setQualityFilter(1);
+    setPriceRows([]);
+    setHasStaleRows(false);
+    setOpen(false);
+    pushRecentItem({ ...base, selectedEnchant: enchant });
+    setRecentItems(readRecentItems());
+  }, []);
+
+  const handleTierChange = useCallback(async (tier: number) => {
+    if (!selected) return;
+    const variant = selected.capabilities?.tiers.find((entry) => entry.tier === tier);
+    if (!variant || variant.id === selected.id) return;
+
+    setTierSwitching(true);
+    try {
+      const res = await fetch(`/api/items?id=${variant.id}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as ItemOption;
+      setSelected(data);
+      setEnchantFilter(0);
+      setQualityFilter(1);
+    } finally {
+      setTierSwitching(false);
+    }
+  }, [selected]);
 
   const loadPrices = useCallback(async (item: ItemOption) => {
+    const clientCacheKey = buildClientPriceCacheKey(
+      item.id,
+      enchantFilter,
+      qualityFilter,
+    );
+    const localCached = readClientPriceCache(clientCacheKey);
+
     setPricesLoading(true);
     setPriceError(null);
-    setPriceRows([]);
+    if (localCached?.rows.length) {
+      setPriceRows(localCached.rows);
+      setHasStaleRows(localCached.rows.some((row) => row.stale));
+    }
+
     try {
       const params = new URLSearchParams({
         id: String(item.id),
@@ -139,13 +230,28 @@ export default function PriceCheckerPage() {
       const res = await fetch(`/api/prices?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) {
+        if (localCached?.rows.length) {
+          setPriceRows(localCached.rows);
+          setHasStaleRows(true);
+          return;
+        }
         setPriceError(
           typeof data?.error === "string" ? data.error : t("price.failedLoad"),
         );
         return;
       }
-      setPriceRows(Array.isArray(data.rows) ? data.rows : []);
+      const rows = Array.isArray(data.rows) ? (data.rows as PriceRow[]) : [];
+      setPriceRows(rows);
+      setHasStaleRows(Boolean(data.hasStaleRows));
+      if (rows.length > 0) {
+        writeClientPriceCache(clientCacheKey, rows);
+      }
     } catch {
+      if (localCached?.rows.length) {
+        setPriceRows(localCached.rows);
+        setHasStaleRows(true);
+        return;
+      }
       setPriceError(t("price.networkError"));
     } finally {
       setPricesLoading(false);
@@ -194,6 +300,46 @@ export default function PriceCheckerPage() {
     setSortDir("desc");
   }, [sortBy]);
 
+  const showRecentItems =
+    query.trim().length === 0 && recentItems.length > 0;
+
+  const itemLabel = useCallback(
+    (item: ItemOption, enchant = 0) => formatItemLabel(item, language, enchant),
+    [language],
+  );
+
+  const renderSearchItem = (item: ItemOption) => {
+    const enchant = item.listEnchant ?? item.selectedEnchant ?? 0;
+    const rowKey = `${item.id}-${enchant}`;
+
+    return (
+      <CommandItem
+        key={rowKey}
+        value={`${rowKey}-${item.uniqueName}`}
+        onSelect={() => handleSelectItem(item)}
+        className="gap-2"
+      >
+        <Check
+          className={cn(
+            "size-4 shrink-0",
+            selected?.id === item.id && enchantFilter === enchant
+              ? "opacity-100"
+              : "opacity-0",
+          )}
+        />
+        <ItemIcon
+          itemId={itemIconId(item, enchant)}
+          size={32}
+          alt=""
+          className="rounded-sm"
+        />
+        <span className="min-w-0 flex-1 truncate font-medium">
+          {itemLabel(item, enchant)}
+        </span>
+      </CommandItem>
+    );
+  };
+
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-4 py-10 sm:px-6">
       <div className="space-y-2 text-center sm:text-left">
@@ -205,53 +351,10 @@ export default function PriceCheckerPage() {
         </p>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-3">
         <label className="text-sm font-medium text-foreground">
           {t("price.itemLabel")}
         </label>
-        <div className="grid max-w-xl grid-cols-1 gap-2 sm:grid-cols-3">
-          <select
-            value={tierFilter}
-            onChange={(e) => {
-              setTierFilter(e.target.value);
-              setSelected(null);
-              setPriceRows([]);
-            }}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value="all">{t("price.tierAll")}</option>
-            <option value="1">Tier: T1</option>
-            <option value="2">Tier: T2</option>
-            <option value="3">Tier: T3</option>
-            <option value="4">Tier: T4</option>
-            <option value="5">Tier: T5</option>
-            <option value="6">Tier: T6</option>
-            <option value="7">Tier: T7</option>
-            <option value="8">Tier: T8</option>
-          </select>
-          <select
-            value={enchantFilter}
-            onChange={(e) => setEnchantFilter(Number.parseInt(e.target.value, 10))}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value={0}>{t("price.enchantNone")}</option>
-            <option value={1}>{t("price.enchant")}: .1</option>
-            <option value={2}>{t("price.enchant")}: .2</option>
-            <option value={3}>{t("price.enchant")}: .3</option>
-            <option value={4}>{t("price.enchant")}: .4</option>
-          </select>
-          <select
-            value={qualityFilter}
-            onChange={(e) => setQualityFilter(Number.parseInt(e.target.value, 10))}
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-          >
-            <option value={1}>{t("price.qualityNormal")}</option>
-            <option value={2}>{t("price.qualityGood")}</option>
-            <option value={3}>{t("price.qualityOutstanding")}</option>
-            <option value={4}>{t("price.qualityExcellent")}</option>
-            <option value={5}>{t("price.qualityMasterpiece")}</option>
-          </select>
-        </div>
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -261,7 +364,7 @@ export default function PriceCheckerPage() {
               className="h-11 w-full max-w-xl justify-between font-normal"
             >
               <span className="truncate text-left">
-                {selected ? itemLabel(selected) : t("price.selectItem")}
+                {selected ? itemLabel(selected, enchantFilter) : t("price.selectItem")}
               </span>
               <ChevronsUpDown className="ml-2 size-4 shrink-0 opacity-50" />
             </Button>
@@ -283,48 +386,98 @@ export default function PriceCheckerPage() {
                   <>
                     <CommandEmpty>
                       {debouncedQuery.trim().length === 0
-                        ? t("price.typeToSearch")
+                        ? showRecentItems
+                          ? null
+                          : t("price.typeToSearch")
                         : t("price.nothingFound")}
                     </CommandEmpty>
-                    <CommandGroup>
-                      {items.map((item) => (
-                        <CommandItem
-                          key={item.id}
-                          value={`${item.id}-${item.uniqueName}`}
-                          onSelect={() => {
-                            setSelected(item);
-                            setOpen(false);
-                          }}
-                        >
-                          <Check
-                            className={cn(
-                              "mr-2 size-4 shrink-0",
-                              selected?.id === item.id
-                                ? "opacity-100"
-                                : "opacity-0",
-                            )}
-                          />
-                          <div className="flex min-w-0 flex-col gap-0.5">
-                            <span className="truncate font-medium">
-                              {item.ruName?.trim() || item.baseName?.trim() || item.name?.trim() || item.uniqueName}
-                            </span>
-                            <span className="truncate text-xs text-muted-foreground">
-                              {item.uniqueName} · {item.tier ? `T${item.tier}` : "T?"} · id {item.id}
-                            </span>
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
+                    {showRecentItems && (
+                      <CommandGroup heading={t("price.recentItems")}>
+                        {recentItems.map((item) => renderSearchItem(item))}
+                      </CommandGroup>
+                    )}
+                    {debouncedQuery.trim().length > 0 && (
+                      <CommandGroup>
+                        {items.map((item) => renderSearchItem(item))}
+                      </CommandGroup>
+                    )}
                   </>
                 )}
               </CommandList>
             </Command>
           </PopoverContent>
         </Popover>
+
+        {showItemOptions && (
+          <div
+            className={cn(
+              "grid max-w-xl grid-cols-1 gap-2",
+              showTierOptions && showEnchantOptions && showQualityOptions
+                ? "sm:grid-cols-3"
+                : "sm:grid-cols-2",
+            )}
+          >
+            {showTierOptions && (
+              <select
+                value={selected?.tier ?? ""}
+                disabled={tierSwitching}
+                onChange={(event) => {
+                  void handleTierChange(Number.parseInt(event.target.value, 10));
+                }}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60"
+              >
+                {selected?.capabilities.tiers.map((entry) => (
+                  <option key={entry.tier} value={entry.tier}>
+                    Tier: T{entry.tier}
+                  </option>
+                ))}
+              </select>
+            )}
+            {showEnchantOptions && (
+              <select
+                value={enchantFilter}
+                onChange={(event) =>
+                  setEnchantFilter(Number.parseInt(event.target.value, 10))
+                }
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {selected?.capabilities.enchants.map((level) => (
+                  <option key={level} value={level}>
+                    {level === 0
+                      ? t("price.enchantNone")
+                      : `${t("price.enchant")}: .${level}`}
+                  </option>
+                ))}
+              </select>
+            )}
+            {showQualityOptions && (
+              <select
+                value={qualityFilter}
+                onChange={(event) =>
+                  setQualityFilter(Number.parseInt(event.target.value, 10))
+                }
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {selected?.capabilities.qualities.map((level) => (
+                  <option key={level} value={level}>
+                    {t(QUALITY_LABEL_KEYS[level] ?? "price.qualityNormal")}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
       </div>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-medium text-foreground">{t("price.marketPrices")}</h2>
+        <h2 className="text-lg font-medium text-foreground">
+          {t("price.marketPrices")}
+          {selected ? (
+            <span className="ml-2 text-base font-normal text-muted-foreground">
+              — {itemLabel(selected, enchantFilter)}
+            </span>
+          ) : null}
+        </h2>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
           <select
             value={cityFilter}
@@ -357,12 +510,18 @@ export default function PriceCheckerPage() {
           </p>
         )}
 
-        {selected && pricesLoading && (
+        {selected && hasStaleRows && !pricesLoading && !priceError && (
+          <p className="rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+            {t("price.cachedNotice")}
+          </p>
+        )}
+
+        {selected && pricesLoading && priceRows.length === 0 && (
           <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-6 text-sm text-muted-foreground">
             <Loader2 className="size-4 animate-spin" />
             {t("price.loadingFor")}{" "}
             <span className="font-medium text-foreground">
-              {itemLabel(selected)}
+              {itemLabel(selected, enchantFilter)}
             </span>
             …
           </div>
@@ -374,61 +533,70 @@ export default function PriceCheckerPage() {
           </p>
         )}
 
-        {selected && !pricesLoading && !priceError && displayedRows.length > 0 && (
-          <div className="rounded-lg border border-border bg-card shadow-sm">
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>{t("price.city")}</TableHead>
-                  <TableHead className="text-right">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("sellPriceMin")}
-                      className="inline-flex items-center text-right hover:text-foreground"
-                    >
-                      {t("price.sellPriceMin")}
-                      <SortIcon active={sortBy === "sellPriceMin"} dir={sortDir} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="text-right">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("buyPriceMax")}
-                      className="inline-flex items-center text-right hover:text-foreground"
-                    >
-                      {t("price.buyPriceMax")}
-                      <SortIcon active={sortBy === "buyPriceMax"} dir={sortDir} />
-                    </button>
-                  </TableHead>
-                  <TableHead className="text-right">
-                    <button
-                      type="button"
-                      onClick={() => toggleSort("updatedAtEpoch")}
-                      className="inline-flex items-center text-right hover:text-foreground"
-                    >
-                      {t("price.updatedAt")}
-                      <SortIcon active={sortBy === "updatedAtEpoch"} dir={sortDir} />
-                    </button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {displayedRows.map((row) => (
-                  <TableRow key={row.city}>
-                    <TableCell className="font-medium">{row.city}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {numberFmt.format(row.sellPriceMin)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {numberFmt.format(row.buyPriceMax)}
-                    </TableCell>
-                    <TableCell className="text-right text-muted-foreground">
-                      {row.updatedAt}
-                    </TableCell>
+        {selected && !priceError && displayedRows.length > 0 && (
+          <div className="space-y-2">
+            {pricesLoading && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" />
+                {t("price.refreshing")}
+              </div>
+            )}
+            <div className="rounded-lg border border-border bg-card shadow-sm">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead>{t("price.city")}</TableHead>
+                    <TableHead className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("sellPriceMin")}
+                        className="inline-flex items-center text-right hover:text-foreground"
+                      >
+                        {t("price.sellPriceMin")}
+                        <SortIcon active={sortBy === "sellPriceMin"} dir={sortDir} />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("buyPriceMax")}
+                        className="inline-flex items-center text-right hover:text-foreground"
+                      >
+                        {t("price.buyPriceMax")}
+                        <SortIcon active={sortBy === "buyPriceMax"} dir={sortDir} />
+                      </button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => toggleSort("updatedAtEpoch")}
+                        className="inline-flex items-center text-right hover:text-foreground"
+                      >
+                        {t("price.updatedAt")}
+                        <SortIcon active={sortBy === "updatedAtEpoch"} dir={sortDir} />
+                      </button>
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {displayedRows.map((row) => (
+                    <TableRow key={row.city} className={row.stale ? "opacity-80" : undefined}>
+                      <TableCell className="font-medium">{row.city}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {numberFmt.format(row.sellPriceMin)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {numberFmt.format(row.buyPriceMax)}
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {row.updatedAt}
+                        {row.stale ? ` ${t("price.cachedRow")}` : ""}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
 

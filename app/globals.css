@@ -275,6 +275,21 @@
     filter: var(--home-map-image-filter);
   }
 
+  .home-notice__panel {
+    min-height: 120px;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .home-notice__bg {
+    /* Фон: public/decor/home-notice-bg.png */
+    padding-left: 29px;
+    padding-right: 29px;
+    background-image: url("/decor/home-notice-bg.png");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 100% 100%;
+  }
+
   /* Шапка: круг 40×40 — тема и язык (слой фона) */
   .site-header-toggle {
     width: 40px;

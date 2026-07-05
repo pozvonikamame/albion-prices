@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 type NavItem = {
   href: string;
   match: string[];
+  labelKey: string;
 };
 
 /** Замените SVG в public/icons — пути зафиксированы в разметке */
@@ -19,11 +20,13 @@ const THEME_ICON_TO_LIGHT = "/icons/theme-light.svg";
 const THEME_ICON_TO_DARK = "/icons/theme-dark.svg";
 
 const navItems: NavItem[] = [
-  { href: "/", match: ["/", "/avalon-maps"] },
-  { href: "/price-checker", match: ["/price-checker"] },
+  { href: "/", match: ["/", "/avalon-maps"], labelKey: "nav.avalonMaps" },
+  { href: "/price-checker", match: ["/price-checker"], labelKey: "nav.priceChecker" },
+  { href: "/black-market", match: ["/black-market"], labelKey: "nav.blackMarket" },
   {
     href: "/crafting-calculator",
     match: ["/crafting-calculator"],
+    labelKey: "nav.craftingCalculator",
   },
 ];
 
@@ -54,12 +57,6 @@ export function SiteHeader() {
         <nav className="flex flex-wrap items-center gap-2 sm:gap-4">
           {navItems.map((item) => {
             const isActive = item.match.includes(pathname);
-            const labelKey =
-              item.href === "/"
-                ? "nav.avalonMaps"
-                : item.href === "/price-checker"
-                  ? "nav.priceChecker"
-                  : "nav.craftingCalculator";
             return (
               <Link
                 key={item.href}
@@ -70,7 +67,7 @@ export function SiteHeader() {
                 )}
                 aria-current={isActive ? "page" : undefined}
               >
-                {t(labelKey)}
+                {t(item.labelKey)}
               </Link>
             );
           })}

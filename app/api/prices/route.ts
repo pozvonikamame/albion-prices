@@ -1,4 +1,13 @@
-import { getItemByNumericId } from "@/lib/items";
+import { indexBlackMarketFromPriceFetch } from "@/lib/black-market";
+import { ensureItemsReady, getItemByNumericId, getItemMaxEnchantLevel, resolvePriceItemId } from "@/lib/items";
+import {
+  buildPriceCacheKey,
+  type PriceRowDto,
+} from "@/lib/price-cache";
+import {
+  getCachedPricesOnly,
+  resolvePricesWithCache,
+} from "@/lib/price-cache-store";
 import { NextRequest } from "next/server";
 
 const ALBION_PRICES_BASE =
@@ -36,7 +45,30 @@ function latestUpdate(sellDate: string, buyDate: string): {
     epoch,
   };
 }
+
+function mapAlbionRows(raw: AlbionPriceRow[]): PriceRowDto[] {
+  return raw.map((row) => {
+    const { label, epoch } = latestUpdate(
+      row.sell_price_min_date,
+      row.buy_price_max_date,
+    );
+    return {
+      city: row.city,
+      sellPriceMin: row.sell_price_min,
+      buyPriceMax: row.buy_price_max,
+      updatedAt: label,
+      updatedAtEpoch: epoch,
+    };
+  });
+}
+
 export async function GET(req: NextRequest) {
+  try {
+    await ensureItemsReady();
+  } catch {
+    return Response.json({ error: "Items database unavailable" }, { status: 503 });
+  }
+
   const idParam = req.nextUrl.searchParams.get("id");
   const enchantParam = req.nextUrl.searchParams.get("enchant") ?? "0";
   const qualityParam = req.nextUrl.searchParams.get("quality") ?? "1";
@@ -61,31 +93,72 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "Unknown item" }, { status: 404 });
   }
 
-  const itemIdForPrice =
-    enchant > 0 ? `${item.baseUniqueName}@${enchant}` : item.baseUniqueName;
-  const url = `${ALBION_PRICES_BASE}/${encodeURIComponent(itemIdForPrice)}.json?qualities=${quality}`;
-  const res = await fetch(url, { next: { revalidate: 60 } });
-  if (!res.ok) {
-    return Response.json(
-      { error: "Failed to load prices", status: res.status },
-      { status: 502 },
-    );
+  const maxAllowedEnchant = getItemMaxEnchantLevel(item);
+  if (enchant > maxAllowedEnchant) {
+    return Response.json({ error: "Invalid enchant for item" }, { status: 400 });
   }
 
-  const raw = (await res.json()) as AlbionPriceRow[];
-  const rows = raw.map((r) => {
-    const { label, epoch } = latestUpdate(
-      r.sell_price_min_date,
-      r.buy_price_max_date,
-    );
-    return {
-      city: r.city,
-      sellPriceMin: r.sell_price_min,
-      buyPriceMax: r.buy_price_max,
-      updatedAt: label,
-      updatedAtEpoch: epoch,
-    };
-  });
+  const itemIdForPrice = resolvePriceItemId(item, enchant);
+  const cacheKey = buildPriceCacheKey(itemIdForPrice, quality);
+  const url = `${ALBION_PRICES_BASE}/${encodeURIComponent(itemIdForPrice)}.json?qualities=${quality}`;
 
-  return Response.json({ item, itemIdForPrice, enchant, quality, rows });
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) {
+      const fallback = getCachedPricesOnly(cacheKey);
+      if (fallback.rows.length > 0) {
+        return Response.json({
+          item,
+          itemIdForPrice,
+          enchant,
+          quality,
+          rows: fallback.rows,
+          fromCache: true,
+          hasStaleRows: true,
+          cachedAt: fallback.savedAt,
+        });
+      }
+      return Response.json(
+        { error: "Failed to load prices", status: res.status },
+        { status: 502 },
+      );
+    }
+
+    const raw = (await res.json()) as AlbionPriceRow[];
+    const freshRows = mapAlbionRows(raw);
+    const { rows, hasStaleRows, savedAt } = resolvePricesWithCache(
+      cacheKey,
+      itemIdForPrice,
+      quality,
+      freshRows,
+    );
+
+    indexBlackMarketFromPriceFetch(id, itemIdForPrice, quality, rows);
+
+    return Response.json({
+      item,
+      itemIdForPrice,
+      enchant,
+      quality,
+      rows,
+      fromCache: hasStaleRows,
+      hasStaleRows,
+      cachedAt: savedAt,
+    });
+  } catch {
+    const fallback = getCachedPricesOnly(cacheKey);
+    if (fallback.rows.length > 0) {
+      return Response.json({
+        item,
+        itemIdForPrice,
+        enchant,
+        quality,
+        rows: fallback.rows,
+        fromCache: true,
+        hasStaleRows: true,
+        cachedAt: fallback.savedAt,
+      });
+    }
+    return Response.json({ error: "Failed to load prices" }, { status: 502 });
+  }
 }
