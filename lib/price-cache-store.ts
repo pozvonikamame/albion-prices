@@ -8,7 +8,9 @@ import {
   type PriceRowDto,
 } from "@/lib/price-cache";
 
-const CACHE_DIR = join(process.cwd(), ".cache");
+const CACHE_DIR = process.env.VERCEL
+  ? join("/tmp", "albion-prices-cache")
+  : join(process.cwd(), ".cache");
 const CACHE_FILE = join(CACHE_DIR, "price-cache.json");
 
 let store = new Map<string, PriceCacheEntry>();

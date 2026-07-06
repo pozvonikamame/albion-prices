@@ -303,59 +303,51 @@ export function indexBlackMarketFromPriceFetch(
   });
 }
 
-export async function scanBlackMarketStep(): Promise<BlackMarketSnapshot> {
-  await ensureItemsReady();
-  const batches = chunkByUrlLength(collectPriceItemIds());
+export function beginBlackMarketScan(options?: {
+  clearRows?: boolean;
+}): BlackMarketSnapshot {
   const snapshot = snapshotWithMergedCache(readBlackMarketSnapshot());
-
-  const done = snapshot.scanProgress?.done ?? 0;
-  if (!snapshot.scanning || done >= batches.length) {
-    const finished: BlackMarketSnapshot = {
-      ...snapshot,
-      scanning: false,
-      scanProgress: null,
-      scanError: null,
-      cachedAt: snapshot.cachedAt ?? Date.now(),
-    };
-    writeBlackMarketSnapshot(finished);
-    return finished;
-  }
-
-  const batchRows = await Promise.all(
-    batches
-      .slice(done, done + Math.min(PARALLEL_BATCHES, batches.length - done))
-      .map((batch) => fetchBlackMarketBatch(batch)),
-  );
-  const merged = mergeRows(snapshot.rows, mapPriceRows(batchRows.flat()));
-  const nextDone =
-    done + Math.min(PARALLEL_BATCHES, batches.length - done);
-  const finished = nextDone >= batches.length;
-
-  const next: BlackMarketSnapshot = {
-    rows: merged,
-    cachedAt: finished ? Date.now() : snapshot.cachedAt,
-    scanning: !finished,
-    scanProgress: finished ? null : { done: nextDone, total: batches.length },
+  const total = chunkByUrlLength(collectPriceItemIds()).length;
+  return {
+    rows: options?.clearRows ? [] : snapshot.rows,
+    cachedAt: options?.clearRows ? null : snapshot.cachedAt,
+    scanning: true,
+    scanProgress: { done: 0, total },
     scanError: null,
   };
-  writeBlackMarketSnapshot(next);
-  if (!finished) await sleep(BATCH_DELAY_MS);
-
-  return next;
 }
 
-export function beginBlackMarketScan(): BlackMarketSnapshot {
-  const snapshot = snapshotWithMergedCache(readBlackMarketSnapshot());
+export async function scanBlackMarketFromDone(
+  startDone: number,
+  waveCount: number,
+): Promise<{
+  addedRows: BlackMarketRow[];
+  scanning: boolean;
+  scanProgress: { done: number; total: number };
+}> {
+  await ensureItemsReady();
   const batches = chunkByUrlLength(collectPriceItemIds());
-  const next: BlackMarketSnapshot = {
-    rows: snapshot.rows,
-    cachedAt: snapshot.cachedAt,
-    scanning: true,
-    scanProgress: { done: 0, total: batches.length },
-    scanError: null,
+  const total = batches.length;
+  let done = Math.min(Math.max(startDone, 0), total);
+  const addedRows: BlackMarketRow[] = [];
+  const waves = Math.min(Math.max(waveCount, 1), 6);
+
+  for (let wave = 0; wave < waves && done < total; wave += 1) {
+    const end = Math.min(done + PARALLEL_BATCHES, total);
+    const batchSlice = batches.slice(done, end);
+    const batchRows = await Promise.all(
+      batchSlice.map((batch) => fetchBlackMarketBatch(batch)),
+    );
+    addedRows.push(...mapPriceRows(batchRows.flat()));
+    done = end;
+    if (done < total && wave < waves - 1) await sleep(BATCH_DELAY_MS);
+  }
+
+  return {
+    addedRows,
+    scanning: done < total,
+    scanProgress: { done, total },
   };
-  writeBlackMarketSnapshot(next);
-  return next;
 }
 
 export async function fetchBlackMarketForSearch(
@@ -390,23 +382,47 @@ export function isBlackMarketCacheStale(cachedAt: number | null): boolean {
 export async function getBlackMarketData(options?: {
   step?: boolean;
   stepCount?: number;
+  scanDone?: number;
   beginScan?: boolean;
+  clearRows?: boolean;
   query?: string;
-}): Promise<BlackMarketSnapshot & { stale: boolean }> {
+}): Promise<BlackMarketSnapshot & { stale: boolean; incremental?: boolean }> {
   await ensureItemsReady();
 
   if (options?.beginScan) {
-    const started = beginBlackMarketScan();
+    const started = beginBlackMarketScan({
+      clearRows: Boolean(options.clearRows),
+    });
     return { ...started, stale: false };
   }
 
   if (options?.step) {
     const count = Math.min(Math.max(options.stepCount ?? 1, 1), 6);
-    let snapshot = snapshotWithMergedCache(readBlackMarketSnapshot());
-    for (let i = 0; i < count && snapshot.scanning; i += 1) {
-      snapshot = await scanBlackMarketStep();
+    const startDone = Math.max(options.scanDone ?? 0, 0);
+    const result = await scanBlackMarketFromDone(startDone, count);
+    const snapshot = snapshotWithMergedCache(readBlackMarketSnapshot());
+    const finished = !result.scanning;
+    const merged = mergeRows(snapshot.rows, result.addedRows);
+
+    if (finished && merged.length > 0) {
+      writeBlackMarketSnapshot({
+        rows: merged,
+        cachedAt: Date.now(),
+        scanning: false,
+        scanProgress: null,
+        scanError: null,
+      });
     }
-    return { ...snapshot, stale: isBlackMarketCacheStale(snapshot.cachedAt) };
+
+    return {
+      rows: result.addedRows,
+      incremental: true,
+      cachedAt: finished ? Date.now() : snapshot.cachedAt,
+      scanning: result.scanning,
+      scanProgress: result.scanning ? result.scanProgress : null,
+      scanError: null,
+      stale: finished ? false : isBlackMarketCacheStale(snapshot.cachedAt),
+    };
   }
 
   let snapshot = snapshotWithMergedCache(readBlackMarketSnapshot());

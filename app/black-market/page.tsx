@@ -48,6 +48,20 @@ function SortIcon({ active, dir }: { active: boolean; dir: SortDir }) {
   );
 }
 
+function mergeRowLists(
+  existing: BlackMarketRow[],
+  incoming: BlackMarketRow[],
+): BlackMarketRow[] {
+  const map = new Map<string, BlackMarketRow>();
+  for (const row of existing) {
+    map.set(`${row.priceItemId}@${row.quality}`, row);
+  }
+  for (const row of incoming) {
+    map.set(`${row.priceItemId}@${row.quality}`, row);
+  }
+  return [...map.values()];
+}
+
 function matchesRowQuery(row: BlackMarketRow, query: string): boolean {
   const q = normalizeSearchValue(query);
   if (!q) return true;
@@ -89,6 +103,7 @@ export default function BlackMarketPage() {
 
   const stepInFlight = useRef(false);
   const scanningRef = useRef(false);
+  const scanDoneRef = useRef(0);
   const loadSentinelRef = useRef<HTMLDivElement | null>(null);
   const handleLoadMoreRef = useRef<() => void>(() => {});
   const initialLoadDone = useRef(false);
@@ -104,34 +119,47 @@ export default function BlackMarketPage() {
     return () => window.clearTimeout(timer);
   }, [query]);
 
-  const applyPayload = useCallback((data: Record<string, unknown>) => {
-    setRows(Array.isArray(data.rows) ? (data.rows as BlackMarketRow[]) : []);
-    setCachedAt(typeof data.cachedAt === "number" ? data.cachedAt : null);
-    const nextScanning = Boolean(data.scanning);
-    scanningRef.current = nextScanning;
-    setScanning(nextScanning);
-    setStale(Boolean(data.stale));
-    setScanProgress(
-      data.scanProgress &&
+  const applyPayload = useCallback(
+    (data: Record<string, unknown>, options?: { merge?: boolean }) => {
+      const incoming = Array.isArray(data.rows)
+        ? (data.rows as BlackMarketRow[])
+        : [];
+      setRows((prev) =>
+        options?.merge || data.incremental === true
+          ? mergeRowLists(prev, incoming)
+          : incoming,
+      );
+      setCachedAt(typeof data.cachedAt === "number" ? data.cachedAt : null);
+      const nextScanning = Boolean(data.scanning);
+      scanningRef.current = nextScanning;
+      setScanning(nextScanning);
+      setStale(Boolean(data.stale));
+      const nextProgress =
+        data.scanProgress &&
         typeof data.scanProgress === "object" &&
         data.scanProgress !== null &&
         typeof (data.scanProgress as { done?: unknown }).done === "number" &&
         typeof (data.scanProgress as { total?: unknown }).total === "number"
-        ? (data.scanProgress as { done: number; total: number })
-        : null,
-    );
-    if (typeof data.scanError === "string" && data.scanError) {
-      setError(data.scanError);
-    }
-    if (!data.scanning) {
-      setRefreshing(false);
-    }
-  }, []);
+          ? (data.scanProgress as { done: number; total: number })
+          : null;
+      setScanProgress(nextProgress);
+      if (nextProgress) {
+        scanDoneRef.current = nextProgress.done;
+      }
+      if (typeof data.scanError === "string" && data.scanError) {
+        setError(data.scanError);
+      }
+      if (!data.scanning) {
+        setRefreshing(false);
+      }
+    },
+    [],
+  );
 
   const fetchScanSteps = useCallback(
     async (count: number): Promise<Record<string, unknown> | null> => {
       const res = await fetch(
-        `/api/black-market?step=1&count=${count}`,
+        `/api/black-market?step=1&count=${count}&done=${scanDoneRef.current}`,
       );
       const data = await res.json();
       if (!res.ok) {
@@ -140,9 +168,10 @@ export default function BlackMarketPage() {
         );
         return null;
       }
-      applyPayload(data);
-      const nextRows = Array.isArray(data.rows) ? data.rows.length : 0;
-      setVisibleCount((prev) => Math.max(prev, Math.min(prev + DISPLAY_CHUNK, nextRows)));
+      applyPayload(data, { merge: true });
+      if (Array.isArray(data.rows) && data.rows.length > 0) {
+        setVisibleCount((prev) => prev + DISPLAY_CHUNK);
+      }
       return data;
     },
     [applyPayload, t],
@@ -159,18 +188,23 @@ export default function BlackMarketPage() {
     });
   }, []);
 
-  const beginScan = useCallback(async (): Promise<boolean> => {
-    const res = await fetch("/api/black-market?begin=1");
-    const data = await res.json();
-    if (!res.ok) {
-      setError(
-        typeof data?.error === "string" ? data.error : t("bm.failedLoad"),
-      );
-      return false;
-    }
-    applyPayload(data);
-    return true;
-  }, [applyPayload, t]);
+  const beginScan = useCallback(
+    async (forceRestart = false): Promise<boolean> => {
+      const suffix = forceRestart ? "?begin=1&restart=1" : "?begin=1";
+      const res = await fetch(`/api/black-market${suffix}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setError(
+          typeof data?.error === "string" ? data.error : t("bm.failedLoad"),
+        );
+        return false;
+      }
+      scanDoneRef.current = 0;
+      applyPayload(data);
+      return true;
+    },
+    [applyPayload, t],
+  );
 
   const runScanSteps = useCallback(
     async (count: number) => {
@@ -206,7 +240,9 @@ export default function BlackMarketPage() {
 
       try {
         if (forceRestart) {
-          const ok = await beginScan();
+          setRows([]);
+          scanDoneRef.current = 0;
+          const ok = await beginScan(true);
           if (!ok) return;
         } else if (!scanningRef.current) {
           const ok = await beginScan();
@@ -372,6 +408,8 @@ export default function BlackMarketPage() {
   const handleRefresh = useCallback(() => {
     autoKickStarted.current = true;
     setVisibleCount(DISPLAY_CHUNK);
+    setRows([]);
+    scanDoneRef.current = 0;
     void kickstartScan(true);
   }, [kickstartScan]);
 
