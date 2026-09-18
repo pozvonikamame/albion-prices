@@ -61,3 +61,12 @@ Avalon    Price         Crafting         Адаптив
 ## Стек
 
 Next.js 15 · React 19 · Tailwind CSS 4 · TypeScript · App Router · `LanguageProvider` (ru/en)
+
+## Разработка и тесты
+
+- Установка зависимостей: `npm install`
+- Локальный запуск: `npm run dev` (`DEV_PORT`, по умолчанию 3000)
+- Прод-сборка: `npm run build`
+- Линт: `npm run lint`
+- Тесты: `npm test` (vitest)
+- Архитектура сканирования чёрного рынка: `docs/black-market-scan.md`

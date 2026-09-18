@@ -87,7 +87,7 @@ export function readBlackMarketSnapshot(): BlackMarketSnapshot {
     return diskSnapshot;
   }
 
-  return EMPTY_SNAPSHOT;
+  return { ...EMPTY_SNAPSHOT };
 }
 
 export function writeBlackMarketSnapshot(snapshot: BlackMarketSnapshot): void {

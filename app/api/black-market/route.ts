@@ -1,4 +1,9 @@
-import { getBlackMarketData } from "@/lib/black-market";
+import {
+  getBlackMarketData,
+  getBlackMarketMeta,
+  parseBlackMarketScanFilter,
+  parseScanProfile,
+} from "@/lib/black-market";
 import { NextRequest } from "next/server";
 
 export const maxDuration = 60;
@@ -12,6 +17,14 @@ export async function GET(req: NextRequest) {
     const beginScan = params.get("begin") === "1";
     const clearRows = params.get("restart") === "1";
     const query = params.get("q")?.trim() || undefined;
+    const metaOnly = params.get("meta") === "1";
+    const filter = parseBlackMarketScanFilter(params);
+    const profile = parseScanProfile(params);
+
+    if (metaOnly) {
+      const meta = await getBlackMarketMeta();
+      return Response.json(meta);
+    }
 
     const data = await getBlackMarketData({
       step,
@@ -20,6 +33,8 @@ export async function GET(req: NextRequest) {
       beginScan,
       clearRows,
       query,
+      filter,
+      profile,
     });
     return Response.json(data);
   } catch {

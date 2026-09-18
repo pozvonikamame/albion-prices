@@ -6,6 +6,7 @@ import {
   normalizeSearchValue,
   rankSearchMatch,
 } from "@/lib/item-search";
+import { ingestShopMetaFromXml } from "@/lib/item-shop-meta";
 
 const ITEMS_URL =
   "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/items.json";
@@ -279,6 +280,7 @@ async function loadItemsFromRemote(): Promise<void> {
   indexEnchantVariants(json);
   indexResourceRarity(json);
   parseQualityFromXml(xml);
+  ingestShopMetaFromXml(xml);
   allItems = parseItemsJson(json);
   byUniqueName.clear();
   byNumericId.clear();

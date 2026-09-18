@@ -7,6 +7,7 @@ import { DecorThemedImg } from "@/components/decor-themed-img";
 import { LanguageProvider } from "@/components/language-provider";
 import { ScreenEdgeDecor } from "@/components/screen-edge-decor";
 import { SiteHeader } from "@/components/site-header";
+import { BlackMarketPrefetch } from "@/components/black-market-prefetch";
 import "./globals.css";
 
 const ptSerif = PT_Serif({
@@ -53,6 +54,7 @@ export default function RootLayout({
           </div>
         </noscript>
         <LanguageProvider>
+          <BlackMarketPrefetch />
           <SiteHeader />
           <div className="mx-auto mt-2 w-full max-w-6xl px-4 sm:px-6">
             <DecorThemedImg
